@@ -1,0 +1,17 @@
+{
+    "terminal.integrated.cwd": "/",
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "bash",
+            "args": [],
+            "icon": "terminal-bash"
+        }
+    },
+    "python.defaultInterpreterPath": "/opt/conda/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.ipynb_checkpoints": true
+    }
+} 
