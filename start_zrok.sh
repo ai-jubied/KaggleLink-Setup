@@ -96,9 +96,12 @@ done
 EOF
 chmod +x "$SUPERVISOR"
 
-# Kill any previous supervisor/share before starting a new one
+# Kill any previous SSH supervisor/share before starting a new one.
+# Target only the SSH share modes (reserved/private) so a public code-server
+# share started separately is left running.
 pkill -f "kagglelink-zrok-run" 2>/dev/null || true
-pkill -f "zrok share" 2>/dev/null || true
+pkill -f "zrok share reserved" 2>/dev/null || true
+pkill -f "zrok share private" 2>/dev/null || true
 sleep 1
 
 echo -e "${BLUE}Starting zrok share in the background (port ${SSH_PORT})...${NC}"

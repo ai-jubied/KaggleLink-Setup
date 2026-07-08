@@ -31,6 +31,9 @@ FOREGROUND=false
 PREFERRED_SHELL="bash"
 AUTH_KEYS_URL=""
 ZROK_TOKEN=""
+CODE_SERVER=false        # opt-in browser VS Code (code-server)
+CODE_PORT="8080"
+CODE_PASSWORD=""         # blank => auto-generated in setup_code_server.sh
 
 usage() {
     echo -e "${BOLD}Usage:${NC} curl -sS <raw_setup_sh_url> | bash -s -- -k <public_key_url> -t <zrok_token> [options]"
@@ -49,6 +52,9 @@ usage() {
     echo "  -n, --share-name NAME   Reserved zrok share name (default: kagglelink)"
     echo "  -s, --shell SHELL       Preferred shell (bash, zsh) (default: bash)"
     echo "  -F, --foreground        Run zrok share in the foreground (blocks the cell)"
+    echo "  -c, --code-server       Also run browser VS Code (code-server) via a public zrok share"
+    echo "      --code-port PORT    Local port for code-server (default: 8080)"
+    echo "      --code-password PW  Password for code-server (default: auto-generated)"
     echo "  -v, --verbose           Enable verbose output"
     echo "  -f, --force             Force fresh clone even if install dir exists"
     echo "  -h, --help              Display this help message"
@@ -95,6 +101,9 @@ while [[ $# -gt 0 ]]; do
         -n|--share-name)    SHARE_NAME="$2"; shift 2 ;;
         -s|--shell)         PREFERRED_SHELL="$2"; shift 2 ;;
         -F|--foreground)    FOREGROUND=true; shift ;;
+        -c|--code-server)   CODE_SERVER=true; shift ;;
+        --code-port)        CODE_PORT="$2"; shift 2 ;;
+        --code-password)    CODE_PASSWORD="$2"; shift 2 ;;
         -v|--verbose)       VERBOSE=true; shift ;;
         -f|--force)         KEEP_EXISTING=false; shift ;;
         -h|--help)          usage ;;
@@ -171,6 +180,15 @@ fi
 log progress "Setting up SSH server and zrok..."
 ./setup_kaggle_zrok.sh "$AUTH_KEYS_URL" "$PORT" "$ZROK_VERSION"
 
+# Optional: browser VS Code (code-server), exposed via a public zrok share.
+# Started before the SSH tunnel so it also works in --foreground mode (where
+# start_zrok.sh exec's and never returns).
+if [ "$CODE_SERVER" = true ]; then
+    log progress "Setting up browser VS Code (code-server)..."
+    ./setup_code_server.sh "$CODE_PORT" "$CODE_PASSWORD" "$WORKING_DIR"
+    ./start_code_server.sh "$ZROK_TOKEN" "$CODE_PORT" "$WORKING_DIR"
+fi
+
 log progress "Starting zrok tunnel..."
 if [ "$FOREGROUND" = true ]; then
     ./start_zrok.sh "$ZROK_TOKEN" "$PORT" --foreground --share-name "$SHARE_NAME"
@@ -182,4 +200,16 @@ echo ""
 echo -e "${GREEN}${BOLD}=====================================${NC}"
 echo -e "${GREEN}${BOLD}    KaggleLink Setup Complete    ${NC}"
 echo -e "${GREEN}${BOLD}=====================================${NC}"
+if [ "$CODE_SERVER" = true ]; then
+    CODE_URL=$(cat /root/.kagglelink_code_url 2>/dev/null || echo "")
+    CODE_PW=$(cat /root/.kagglelink_code_password 2>/dev/null || echo "")
+    echo ""
+    log success "Browser VS Code (code-server):"
+    if [ -n "$CODE_URL" ]; then
+        echo -e "    URL:      ${BOLD}${CODE_URL}${NC}"
+    else
+        echo -e "    URL:      not detected yet - run 'kagglelink-status' or: tail -f /var/log/kagglelink/zrok-code.log"
+    fi
+    echo -e "    Password: ${BOLD}${CODE_PW:-<see above>}${NC}"
+fi
 log success "Run 'kagglelink-status' over SSH to check tunnel health."

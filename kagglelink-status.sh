@@ -45,6 +45,17 @@ else
     echo -e "auto-restart:    ${YELLOW}inactive${NC} (tunnel will not recover if it drops)"
 fi
 
+# code-server (optional browser VS Code)
+if pgrep -f "code-server" >/dev/null; then
+    echo -e "code-server:     ${GREEN}running${NC}"
+    code_url=$(cat /root/.kagglelink_code_url 2>/dev/null)
+    code_pw=$(cat /root/.kagglelink_code_password 2>/dev/null)
+    [ -n "$code_url" ] && echo -e "  URL:           ${BOLD}${code_url}${NC}"
+    [ -n "$code_pw" ]  && echo -e "  password:      ${BOLD}${code_pw}${NC}"
+elif [ -f /root/.kagglelink_code_password ]; then
+    echo -e "code-server:     ${RED}NOT running${NC} - re-run start_code_server.sh"
+fi
+
 # access token hint
 if [ -f "$ZROK_LOG" ]; then
     token=$(grep -oE 'zrok access private [[:alnum:]]+' "$ZROK_LOG" 2>/dev/null | tail -n 1 | awk '{print $4}')
