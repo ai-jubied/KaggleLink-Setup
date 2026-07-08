@@ -156,10 +156,29 @@ rsync -avP -e "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -
 | `tail -f /var/log/kagglelink/zrok.log` | Watch the SSH tunnel log |
 | `tail -f /var/log/kagglelink/zrok-code.log` | Watch the code-server public-share log (with `-c`) |
 
+## Keeping the session alive
+
+Kaggle's interactive idle guard watches the **notebook browser tab** (running cells and editor activity), **not** activity on the instance. Working over SSH or in code-server does not register as interaction, so after ~40–60 min Kaggle shows *"Are you still there?"* and stops the session — taking the tunnel with it.
+
+The default background mode releases the notebook cell, which leaves the tab looking completely idle. To hold a session open while you work remotely:
+
+**Foreground mode (`-F`)** keeps a cell running, which continuously extends the idle timer:
+
+```bash
+!curl -sS https://raw.githubusercontent.com/ai-jubied/KaggleLink-Setup/main/setup.sh \
+  | bash -s -- -f -k <public_key_url> -t <zrok_token> -c -F
+```
+
+The cell blocks and streams the tunnel log — that is intended; leave it running. With `-c -F`, code-server and its public share start first, then the SSH share runs in the foreground to hold the session open.
+
+**Commit run (most robust)** — use **Save Version → Save & Run All (Commit)**. A committed run executes in the background with **no inactivity timeout**, up to 9h (3h on TPU), and survives closing the browser. This only works if the final cell **blocks**, so use `-F` as the last cell before committing; otherwise the notebook runs to the end and the batch session exits.
+
+Hard limits still apply regardless: interactive sessions cap at 12h, batch at 9h, plus your weekly accelerator quota. None of these can be bypassed, and on an ephemeral share the access URL/token changes whenever the session restarts.
+
 ## Troubleshooting
 
 - **`zrok enable` fails / environment limit reached** — the Starter plan allows a limited number of environments. Release stale ones from your zrok dashboard, or run `zrok disable` on the Kaggle instance before the session ends.
-- **Tunnel dies when the notebook goes idle** — Kaggle stops idle sessions; keep the browser tab active or use Kaggle's "persistence" options. The supervisor only survives while the session itself is alive.
+- **Tunnel dies when the notebook goes idle** — Kaggle stops idle interactive sessions after ~40–60 min. See [Keeping the session alive](#keeping-the-session-alive): run with `-F` and/or use a commit run. The supervisor only survives while the session itself is alive.
 - **Reserved share creation fails** — the setup falls back to an ephemeral share automatically; the access token is then printed from the log and changes on each restart.
 - **Permission denied (publickey)** — confirm your keys URL serves the raw public key (open it in a browser) and that you're using the matching private key with `-i`.
 - **`-c` set but no code-server URL** — the public share may still be starting; run `kagglelink-status` or `tail -f /var/log/kagglelink/zrok-code.log`. If the share never appears, your zrok plan may not permit public shares.
