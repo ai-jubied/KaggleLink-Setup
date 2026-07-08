@@ -8,8 +8,8 @@ set -euo pipefail
 
 AUTH_KEYS_URL=${1:?Usage: ./setup_kaggle_zrok.sh <authorized_keys_url> [ssh_port] [zrok_version]}
 SSH_PORT=${2:-22}
-ZROK_VERSION=${3:-latest}          # "latest" resolves via GitHub redirect, or pin e.g. v2.0.4
-FALLBACK_ZROK_VERSION="v2.0.4"
+ZROK_VERSION=${3:-v1.1.11}         # pin to last v1 release; v2 renamed the binary to zrok2 and removed the reserve/share-reserved CLI this script uses
+FALLBACK_ZROK_VERSION="v1.1.11"
 
 ENV_FILE="/root/.kagglelink_env"
 LOG_DIR="/var/log/kagglelink"
@@ -197,13 +197,16 @@ install_zrok() {
         exit 1
     fi
 
-    if [ ! -f "$tmpdir/zrok" ]; then
+    # Locate the binary anywhere in the archive (v1 ships top-level 'zrok';
+    # be resilient if a future/pinned build nests it in a subdirectory).
+    zrok_bin=$(find "$tmpdir" -type f -name zrok | head -n 1)
+    if [ -z "$zrok_bin" ]; then
+        log "ERROR: zrok binary not found in archive (contents: $(find "$tmpdir" -maxdepth 2 -type f -printf '%P ' 2>/dev/null))"
         rm -rf "$tmpdir"
-        log "ERROR: zrok binary not found in archive"
         exit 1
     fi
 
-    install -m 755 "$tmpdir/zrok" /usr/local/bin/zrok
+    install -m 755 "$zrok_bin" /usr/local/bin/zrok
     rm -rf "$tmpdir"
 
     if ! zrok version &>/dev/null; then

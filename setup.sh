@@ -23,7 +23,7 @@ BRANCH="main"
 INSTALL_DIR="/tmp/kagglelink"
 WORKING_DIR="/kaggle/working"
 PORT="22"
-ZROK_VERSION="latest"
+ZROK_VERSION="v1.1.11"   # pin to last v1 release; zrok v2 renamed the binary to zrok2 and removed reserve/share-reserved commands this script relies on
 SHARE_NAME="kagglelink"
 VERBOSE=false
 KEEP_EXISTING=true
@@ -45,7 +45,7 @@ usage() {
     echo "  -d, --dir PATH          Installation directory (default: /tmp/kagglelink)"
     echo "  -w, --working PATH      Working directory (default: /kaggle/working)"
     echo "  -p, --port PORT         SSH port to use (default: 22)"
-    echo "  -z, --zrok-version VER  zrok version to install, e.g. v2.0.4 (default: latest)"
+    echo "  -z, --zrok-version VER  zrok version to install (default: v1.1.11; v2.x is NOT compatible)"
     echo "  -n, --share-name NAME   Reserved zrok share name (default: kagglelink)"
     echo "  -s, --shell SHELL       Preferred shell (bash, zsh) (default: bash)"
     echo "  -F, --foreground        Run zrok share in the foreground (blocks the cell)"
