@@ -133,7 +133,13 @@ check_command wget
 # Create or update repository
 if [ -d "$INSTALL_DIR/.git" ] && [ "$KEEP_EXISTING" = true ]; then
     log info "Repository already present. Updating it..."
-    git -C "$INSTALL_DIR" pull --ff-only || log warning "git pull failed; continuing with existing checkout"
+    # Hard-reset to the remote so rewritten/force-pushed history still updates cleanly
+    # (a plain 'git pull --ff-only' aborts on divergent history and leaves stale scripts).
+    if git -C "$INSTALL_DIR" fetch --depth 1 origin "$BRANCH"; then
+        git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH" || log warning "git reset failed; continuing with existing checkout"
+    else
+        log warning "git fetch failed; continuing with existing checkout"
+    fi
 else
     [ -d "$INSTALL_DIR" ] && { log warning "Removing existing $INSTALL_DIR..."; rm -rf "$INSTALL_DIR"; }
     log progress "Cloning repository..."
