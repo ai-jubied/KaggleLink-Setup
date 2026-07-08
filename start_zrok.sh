@@ -112,7 +112,7 @@ else
     # Ephemeral shares print their token to the log; wait for it.
     ACCESS_TOKEN=""
     for _ in $(seq 1 30); do
-        ACCESS_TOKEN=$(grep -oE 'zrok access private [[:alnum:]]+' "$ZROK_LOG" 2>/dev/null | tail -n 1 | awk '{print $4}')
+        ACCESS_TOKEN=$(grep -oE 'zrok access private [[:alnum:]]+' "$ZROK_LOG" 2>/dev/null | tail -n 1 | awk '{print $4}' || true)
         [ -n "$ACCESS_TOKEN" ] && break
         sleep 2
     done
