@@ -178,6 +178,7 @@ Hard limits still apply regardless: interactive sessions cap at 12h, batch at 9h
 ## Troubleshooting
 
 - **`zrok enable` fails / environment limit reached** — the Starter plan allows a limited number of environments. Release stale ones from your zrok dashboard, or run `zrok disable` on the Kaggle instance before the session ends.
+- **`INVALID_AUTH: The authentication request failed` / `no apiSession` when a share starts** — the instance is reusing a stale zrok identity (`zrok enable` reported "already enabled" but the controller rejects it). Purge and re-enable: `zrok disable 2>/dev/null; rm -rf ~/.zrok`, then re-run with `-f` (which now does this automatically). If `zrok enable` then fails on the environment limit, delete stale environments — and any orphaned reserved share — from your zrok console first.
 - **Tunnel dies when the notebook goes idle** — Kaggle stops idle interactive sessions after ~40–60 min. See [Keeping the session alive](#keeping-the-session-alive): run with `-F` and/or use a commit run. The supervisor only survives while the session itself is alive.
 - **Reserved share creation fails** — the setup falls back to an ephemeral share automatically; the access token is then printed from the log and changes on each restart.
 - **Permission denied (publickey)** — confirm your keys URL serves the raw public key (open it in a browser) and that you're using the matching private key with `-i`.

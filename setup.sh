@@ -180,6 +180,16 @@ fi
 log progress "Setting up SSH server and zrok..."
 ./setup_kaggle_zrok.sh "$AUTH_KEYS_URL" "$PORT" "$ZROK_VERSION"
 
+# With --force, start from a clean zrok environment. A leftover identity from a
+# previous or dead session is reused by 'zrok enable' (skipped as "already
+# enabled") but rejected by the controller, causing 'INVALID_AUTH / no apiSession'
+# when a share tries to bind. Purging ~/.zrok forces a fresh, valid enable.
+if [ "$KEEP_EXISTING" = false ]; then
+    log progress "Resetting zrok environment for a clean enable..."
+    command -v zrok >/dev/null 2>&1 && zrok disable >/dev/null 2>&1 || true
+    rm -rf "${HOME:-/root}/.zrok" /root/.zrok
+fi
+
 # Optional: browser VS Code (code-server), exposed via a public zrok share.
 # Started before the SSH tunnel so it also works in --foreground mode (where
 # start_zrok.sh exec's and never returns).
@@ -191,7 +201,13 @@ fi
 
 log progress "Starting zrok tunnel..."
 if [ "$FOREGROUND" = true ]; then
-    ./start_zrok.sh "$ZROK_TOKEN" "$PORT" --foreground --share-name "$SHARE_NAME"
+    # Foreground share blocks the cell to hold the Kaggle session open. When it
+    # is stopped/terminated it exits non-zero - that's a normal end, not a
+    # failure, so don't let it trip the ERR trap.
+    log info "Tunnel running in the foreground - stop the cell to end it."
+    ./start_zrok.sh "$ZROK_TOKEN" "$PORT" --foreground --share-name "$SHARE_NAME" || true
+    log info "Foreground tunnel stopped."
+    exit 0
 else
     ./start_zrok.sh "$ZROK_TOKEN" "$PORT" --share-name "$SHARE_NAME"
 fi
