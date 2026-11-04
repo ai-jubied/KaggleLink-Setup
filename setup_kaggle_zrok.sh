@@ -66,7 +66,14 @@ copy_vscode_dir() {
 }
 
 configure_sshd() {
-    mkdir -p /var/run/sshd
+    mkdir -p /etc/ssh /var/run/sshd
+    log "Ensuring SSH host keys exist..."
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ] && [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+        ssh-keygen -A >/dev/null 2>&1 || {
+            ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' -q || true
+            ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' -q || true
+        }
+    fi
     log "Writing sshd_config (port ${SSH_PORT})..."
 
     if [ -s /etc/ssh/sshd_config ] && [ ! -f /etc/ssh/sshd_config.backup ]; then
@@ -264,7 +271,8 @@ setup_default_directory() {
 
 start_ssh_service() {
     mkdir -p "$LOG_DIR"
-    service ssh restart
+    ssh-keygen -A >/dev/null 2>&1 || true
+    service ssh restart || /etc/init.d/ssh restart
     log "SSH service running on port ${SSH_PORT}."
 }
 
