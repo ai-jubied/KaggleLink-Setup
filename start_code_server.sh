@@ -11,9 +11,16 @@
 #
 set -euo pipefail
 
-ZROK_TOKEN=${1:?Usage: ./start_code_server.sh <zrok_token> [port] [workspace_dir]}
-CODE_PORT=${2:-8080}
-WORKSPACE=${3:-$(cat /root/.kagglelink_code_workspace 2>/dev/null || echo /kaggle/working)}
+ZROK_TOKEN=${1:-${ZROK_TOKEN:-}}
+if [ -z "$ZROK_TOKEN" ]; then
+    echo -e "${RED}Error:${NC} zrok token required"
+    echo -e "${BOLD}Usage:${NC} ./start_code_server.sh <zrok_token> [port] [workspace_dir]"
+    exit 1
+fi
+[ $# -gt 0 ] && shift
+CODE_PORT=${1:-8080}
+[ $# -gt 0 ] && shift
+WORKSPACE=${1:-$(cat /root/.kagglelink_code_workspace 2>/dev/null || echo /kaggle/working)}
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

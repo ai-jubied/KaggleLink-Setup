@@ -6,10 +6,11 @@
 #
 set -euo pipefail
 
-AUTH_KEYS_URL=${1:?Usage: ./setup_kaggle_zrok.sh <authorized_keys_url> [ssh_port] [zrok_version]}
+AUTH_KEYS_URL=${1:-${AUTH_KEYS_URL:-}}
 SSH_PORT=${2:-22}
 ZROK_VERSION=${3:-v1.1.11}         # pin to last v1 release; v2 renamed the binary to zrok2 and removed the reserve/share-reserved CLI this script uses
 FALLBACK_ZROK_VERSION="v1.1.11"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
 
 ENV_FILE="/root/.kagglelink_env"
 LOG_DIR="/var/log/kagglelink"
@@ -21,18 +22,32 @@ setup_ssh_directory() {
     log "Setting up SSH directory in $HOME/.ssh..."
     local ssh_dir_path="$HOME/.ssh"
     mkdir -p "$ssh_dir_path"
-    if wget -q --tries=3 --timeout=30 -O "$ssh_dir_path/authorized_keys" "$AUTH_KEYS_URL"; then
-        chmod 700 "$ssh_dir_path"
-        chmod 600 "$ssh_dir_path/authorized_keys"
-        if ! grep -qE '^(ssh|ecdsa)-' "$ssh_dir_path/authorized_keys"; then
-            log "ERROR: downloaded file does not look like an authorized_keys file (no public key found)."
-            log "Check that $AUTH_KEYS_URL points to the RAW public key file."
+    chmod 700 "$ssh_dir_path"
+    local key_installed=false
+
+    if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
+        echo "$SSH_PUBLIC_KEY" > "$ssh_dir_path/authorized_keys"
+        key_installed=true
+    elif [ -n "${AUTH_KEYS_URL:-}" ]; then
+        if wget -q --tries=3 --timeout=30 -O "$ssh_dir_path/authorized_keys" "$AUTH_KEYS_URL" || \
+           curl -fsSL --retry 3 --connect-timeout 30 "$AUTH_KEYS_URL" -o "$ssh_dir_path/authorized_keys"; then
+            key_installed=true
+        else
+            log "ERROR: failed to download authorized keys from $AUTH_KEYS_URL"
             exit 1
         fi
-        log "authorized_keys installed ($(grep -cE '^(ssh|ecdsa)-' "$ssh_dir_path/authorized_keys") key(s))"
     else
-        log "ERROR: failed to download authorized keys from $AUTH_KEYS_URL"
+        log "ERROR: neither SSH_PUBLIC_KEY nor AUTH_KEYS_URL was provided"
         exit 1
+    fi
+
+    if [ "$key_installed" = true ]; then
+        chmod 600 "$ssh_dir_path/authorized_keys"
+        if ! grep -qE '^(ssh-|ecdsa-)' "$ssh_dir_path/authorized_keys"; then
+            log "ERROR: authorized_keys does not contain a valid SSH public key (expected ssh-* or ecdsa-*)."
+            exit 1
+        fi
+        log "authorized_keys installed ($(grep -cE '^(ssh-|ecdsa-)' "$ssh_dir_path/authorized_keys") key(s))"
     fi
 }
 
@@ -178,14 +193,20 @@ install_zrok() {
         log "zrok already installed: $(zrok version 2>/dev/null | head -n 1); skipping install"
         return
     fi
-    local version tarball url tmpdir
+    local version tarball url tmpdir arch
     version=$(resolve_zrok_version)
-    tarball="zrok_${version#v}_linux_amd64.tar.gz"
+    case $(uname -m) in
+        x86_64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *) arch="amd64" ;;
+    esac
+    tarball="zrok_${version#v}_linux_${arch}.tar.gz"
     url="https://github.com/openziti/zrok/releases/download/${version}/${tarball}"
     tmpdir=$(mktemp -d)
 
-    log "Downloading zrok ${version}..."
-    if ! wget -q --tries=3 --timeout=60 -O "$tmpdir/$tarball" "$url"; then
+    log "Downloading zrok ${version} (${arch})..."
+    if ! wget -q --tries=3 --timeout=60 -O "$tmpdir/$tarball" "$url" && \
+       ! curl -fsSL --retry 3 --connect-timeout 60 "$url" -o "$tmpdir/$tarball"; then
         rm -rf "$tmpdir"
         log "ERROR: failed to download $url"
         exit 1

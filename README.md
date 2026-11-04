@@ -19,7 +19,7 @@ kagglelink turns a Kaggle notebook session into a remote development machine. It
 ## Requirements
 
 1. A zrok account token. Create an account at [myzrok.io](https://myzrok.io/) (Starter plan works with NetFoundry's public zrok instance).
-2. Your SSH **public** key hosted at a URL Kaggle can reach (a public GitHub repo raw URL works).
+2. Your SSH public key — either pasted directly (e.g. `~/.ssh/kaggle_rsa.pub`) or hosted at a reachable URL (e.g. `https://github.com/<username>.keys`).
 3. A Kaggle notebook with **internet access enabled** (Notebook settings → Internet → On).
 
 ## Quick Setup
@@ -30,12 +30,16 @@ kagglelink turns a Kaggle notebook session into a remote development machine. It
 ssh-keygen -t ed25519 -C "kaggle_remote_ssh" -f ~/.ssh/kaggle_rsa
 ```
 
-Host the **`.pub`** file somewhere public — e.g. push `~/.ssh/kaggle_rsa.pub` to a public GitHub repo and copy the **Raw** URL (`https://raw.githubusercontent.com/<user>/<repo>/main/kaggle_rsa.pub`). Never publish the private key.
-
-> Tip: GitHub already serves all your account's public keys at `https://github.com/<username>.keys` — you can use that URL directly and skip the repo.
+You can pass the public key (`~/.ssh/kaggle_rsa.pub`) directly with `-K "<key_content>"`, or host it at a public URL (or use `https://github.com/<username>.keys`) with `-k <url>`. Never publish your private key.
 
 ### 2. Run the setup in a Kaggle cell
 
+**Method A: Direct Public Key (Recommended - no file hosting needed)**
+```bash
+!curl -sS https://raw.githubusercontent.com/ai-jubied/KaggleLink-Setup/main/setup.sh | bash -s -- -K "<paste_contents_of_kaggle_rsa.pub>" -t <zrok_token>
+```
+
+**Method B: Public Key URL**
 ```bash
 !curl -sS https://raw.githubusercontent.com/ai-jubied/KaggleLink-Setup/main/setup.sh | bash -s -- -k <public_key_url> -t <zrok_token>
 ```
@@ -52,8 +56,9 @@ The cell is released once setup completes — the tunnel keeps running in the ba
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-k, --keys-url` | URL to your authorized_keys / public key file | *(required)* |
-| `-t, --token` | zrok account token | *(required)* |
+| `-K, --public-key` | Raw SSH public key string (e.g. `"ssh-ed25519 AAA..."`) | *(one key option required)* |
+| `-k, --keys-url` | URL to your authorized_keys / public key file | *(one key option required)* |
+| `-t, --token` | zrok account token (or `ZROK_TOKEN` env) | *(required)* |
 | `-r, --repo` | Repository to clone (use your fork) | this repo |
 | `-b, --branch` | Branch to clone | `main` |
 | `-p, --port` | SSH port on the instance | `22` |
@@ -95,31 +100,39 @@ The cell is released once setup completes — the tunnel keeps running in the ba
 Or do steps 3–4 in one go with the helper script:
 
 ```bash
-./connect.sh            # uses share 'kagglelink', port 9191, key ~/.ssh/kaggle_rsa
+./connect.sh            # opens tunnel & launches SSH shell in current terminal
+./connect.sh -t         # opens & holds tunnel on 127.0.0.1:9191 (ideal for VS Code Remote-SSH)
 ./connect.sh mytoken 9292 ~/.ssh/other_key
 ```
 
 ### SSH config (recommended)
 
-Add to `~/.ssh/config`, then connect with just `ssh Kaggle` (also makes VS Code Remote-SSH show a "Kaggle" host):
+Add to `~/.ssh/config`, then connect with just `ssh kaggle` (also makes VS Code Remote-SSH show a `kaggle` host):
 
-```
-Host Kaggle
+```ssh-config
+Host kaggle Kaggle
     HostName 127.0.0.1
-    UserKnownHostsFile /dev/null
-    StrictHostKeyChecking no
-    IdentityFile ~/.ssh/kaggle_rsa
-    Port 9191
     User root
-    ServerAliveInterval 60
+    Port 9191
+    IdentityFile ~/.ssh/kaggle_rsa
+    IdentitiesOnly yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    ServerAliveInterval 30
     ServerAliveCountMax 3
+    TCPKeepAlive yes
 ```
 
-## VS Code
+## VS Code Remote Access
 
-1. Install the **Remote-SSH** extension locally.
-2. With the tunnel open, connect to host `Kaggle` (or `root@127.0.0.1:9191`).
-3. Inside the remote session, run `install_extensions` in the terminal to install a curated extension set (Python, Jupyter, GitLens, …).
+1. Open the tunnel locally:
+   ```bash
+   ./connect.sh -t
+   ```
+2. In VS Code, install the **Remote - SSH** extension (`ms-vscode-remote.remote-ssh`).
+3. Press `F1` (or `Cmd+Shift+P`), select **Remote-SSH: Connect to Host...**, and choose **kaggle** (or connect to `root@127.0.0.1:9191`).
+4. VS Code opens `/kaggle/working`. You have full access to GPUs (`nvidia-smi`), terminal, and files!
+5. Inside the remote session, run `install_extensions` in the terminal to install a curated extension set (Python, Jupyter, GitLens, …).
 
 ## Browser VS Code (code-server)
 

@@ -29,18 +29,20 @@ VERBOSE=false
 KEEP_EXISTING=true
 FOREGROUND=false
 PREFERRED_SHELL="bash"
-AUTH_KEYS_URL=""
-ZROK_TOKEN=""
+AUTH_KEYS_URL="${AUTH_KEYS_URL:-}"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
+ZROK_TOKEN="${ZROK_TOKEN:-}"
 CODE_SERVER=false        # opt-in browser VS Code (code-server)
 CODE_PORT="8080"
 CODE_PASSWORD=""         # blank => auto-generated in setup_code_server.sh
 
 usage() {
-    echo -e "${BOLD}Usage:${NC} curl -sS <raw_setup_sh_url> | bash -s -- -k <public_key_url> -t <zrok_token> [options]"
+    echo -e "${BOLD}Usage:${NC} curl -sS <raw_setup_sh_url> | bash -s -- [options]"
     echo ""
-    echo -e "${BOLD}Required:${NC}"
-    echo "  -k, --keys-url URL      URL to your authorized_keys file"
-    echo "  -t, --token TOKEN       Your zrok account token"
+    echo -e "${BOLD}Authentication (provide at least one key method and token):${NC}"
+    echo "  -k, --keys-url URL      URL to your authorized_keys file (e.g. GitHub raw URL)"
+    echo "  -K, --public-key KEY    Direct SSH public key string (e.g. \"ssh-ed25519 AAA...\")"
+    echo "  -t, --token TOKEN       Your zrok account token (or set ZROK_TOKEN env)"
     echo ""
     echo -e "${BOLD}Options:${NC}"
     echo "  -r, --repo URL          Repository to clone (default: $REPO_URL)"
@@ -58,7 +60,7 @@ usage() {
     echo "  -v, --verbose           Enable verbose output"
     echo "  -f, --force             Force fresh clone even if install dir exists"
     echo "  -h, --help              Display this help message"
-    exit 1
+    exit "${1:-1}"
 }
 
 log() {
@@ -91,6 +93,7 @@ trap 'handle_error $LINENO' ERR
 while [[ $# -gt 0 ]]; do
     case $1 in
         -k|--keys-url)      AUTH_KEYS_URL="$2"; shift 2 ;;
+        -K|--public-key)    SSH_PUBLIC_KEY="$2"; shift 2 ;;
         -t|--token)         ZROK_TOKEN="$2"; shift 2 ;;
         -r|--repo)          REPO_URL="$2"; shift 2 ;;
         -b|--branch)        BRANCH="$2"; shift 2 ;;
@@ -106,8 +109,8 @@ while [[ $# -gt 0 ]]; do
         --code-password)    CODE_PASSWORD="$2"; shift 2 ;;
         -v|--verbose)       VERBOSE=true; shift ;;
         -f|--force)         KEEP_EXISTING=false; shift ;;
-        -h|--help)          usage ;;
-        *)                  log error "Unknown option: $1"; usage ;;
+        -h|--help)          usage 0 ;;
+        *)                  log error "Unknown option: $1"; usage 1 ;;
     esac
 done
 
@@ -124,13 +127,13 @@ if [ "$VERBOSE" = true ]; then
 fi
 
 # Check for required parameters
-if [ -z "$AUTH_KEYS_URL" ]; then
-    log error "Public key URL (-k or --keys-url) is required"
+if [ -z "$AUTH_KEYS_URL" ] && [ -z "$SSH_PUBLIC_KEY" ]; then
+    log error "SSH Public key is required: provide either -K/--public-key, -k/--keys-url, or SSH_PUBLIC_KEY env"
     usage
 fi
 
 if [ -z "$ZROK_TOKEN" ]; then
-    log error "Zrok token (-t or --token) is required"
+    log error "Zrok token is required: provide either -t/--token or ZROK_TOKEN env"
     usage
 fi
 
@@ -178,6 +181,7 @@ elif [ "$PREFERRED_SHELL" != "bash" ]; then
 fi
 
 log progress "Setting up SSH server and zrok..."
+export SSH_PUBLIC_KEY
 ./setup_kaggle_zrok.sh "$AUTH_KEYS_URL" "$PORT" "$ZROK_VERSION"
 
 # With --force, start from a clean zrok environment. A leftover identity from a

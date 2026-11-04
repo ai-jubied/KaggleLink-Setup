@@ -17,23 +17,27 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-if [ "$#" -lt 1 ]; then
-    echo -e "${RED}Error:${NC} zrok token required"
+ZROK_TOKEN="${ZROK_TOKEN:-}"
+if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+    ZROK_TOKEN="$1"
+    shift
+fi
+
+if [ -z "$ZROK_TOKEN" ]; then
+    echo -e "${RED}Error:${NC} zrok token required (pass as argument or set ZROK_TOKEN env)"
     echo -e "${BOLD}Usage:${NC} ./start_zrok.sh <zrok_token> [ssh_port] [--foreground] [--share-name NAME]"
     exit 1
 fi
 
-ZROK_TOKEN=$1
-shift
 SSH_PORT=22
 FOREGROUND=false
 SHARE_NAME="kagglelink"
 
 while [ "$#" -gt 0 ]; do
     case $1 in
-        --foreground)  FOREGROUND=true; shift ;;
-        --share-name)  SHARE_NAME="$2"; shift 2 ;;
-        *)             SSH_PORT="$1"; shift ;;
+        --foreground|-F)  FOREGROUND=true; shift ;;
+        --share-name|-n)  SHARE_NAME="$2"; shift 2 ;;
+        *)                SSH_PORT="$1"; shift ;;
     esac
 done
 

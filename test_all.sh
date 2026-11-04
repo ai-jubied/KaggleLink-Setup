@@ -12,13 +12,18 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}${BOLD}Starting automated test...${NC}"
 
 # Validate environment variables
+AUTH_KEYS_URL="${AUTH_KEYS_URL:-}"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
+ZROK_TOKEN="${ZROK_TOKEN:-}"
+
 echo -e "${BLUE}Validating environment variables:${NC}"
 echo "AUTH_KEYS_URL: ${AUTH_KEYS_URL:-(not set)}"
+echo "SSH_PUBLIC_KEY: ${SSH_PUBLIC_KEY:-(not set)}"
 echo "ZROK_TOKEN: ${ZROK_TOKEN:-(not set)}"
 
-if [ -z "$AUTH_KEYS_URL" ]; then
-    echo -e "${RED}Error: AUTH_KEYS_URL environment variable is not set.${NC}"
-    echo "Provide it during 'docker build' using --build-arg AUTH_KEYS_URL_ARG=your_url"
+if [ -z "$AUTH_KEYS_URL" ] && [ -z "$SSH_PUBLIC_KEY" ]; then
+    echo -e "${RED}Error: Neither AUTH_KEYS_URL nor SSH_PUBLIC_KEY environment variable is set.${NC}"
+    echo "Provide one during 'docker build' using --build-arg AUTH_KEYS_URL_ARG=your_url"
     exit 1
 fi
 
@@ -29,7 +34,8 @@ if [ -z "$ZROK_TOKEN" ]; then
 fi
 
 # Run setup script
-echo -e "${BLUE}Running setup_kaggle_zrok.sh with URL: $AUTH_KEYS_URL${NC}"
+export SSH_PUBLIC_KEY
+echo -e "${BLUE}Running setup_kaggle_zrok.sh...${NC}"
 ./setup_kaggle_zrok.sh "$AUTH_KEYS_URL"
 
 # Locate zrok binary
