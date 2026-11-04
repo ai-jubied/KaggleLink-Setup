@@ -165,6 +165,18 @@ Once you are connected to Kaggle via SSH or VS Code terminal, you have these hel
 
 ## Part 6: Troubleshooting
 
+- **Issue: `[ERROR]: unable to create private access ([POST /access][401] accessUnauthorized)`**
+  - **Cause:** The local computer's cached zrok identity in `~/.zrok/` is expired or out of sync with the zrok controller.
+  - **Fix:** Refresh your local zrok identity by running in your Mac terminal:
+    ```bash
+    zrok disable
+    zrok enable W6ar2oeKpPSw
+    ```
+
+- **Issue: `sshd: no hostkeys available -- exiting`**
+  - **Cause:** Fresh Kaggle containers don't have default SSH host keys pre-generated.
+  - **Fix:** KaggleLink now automatically generates them (`ssh-keygen -A`). If Kaggle ever shows this, add `-f` to your Kaggle cell command to force the latest script version.
+
 - **Issue: `zrok enable failed / environment limit reached`**
   - **Cause:** Free zrok accounts allow up to 3-5 active environments. If you start many fresh Kaggle notebooks without disabling previous ones, old environments linger.
   - **Fix:** Go to [myzrok.io](https://myzrok.io/), open the web console, and delete any old / dead environments.

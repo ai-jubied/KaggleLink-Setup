@@ -113,6 +113,8 @@ READY=false
 for _ in $(seq 1 20); do
     if ! kill -0 "$ACCESS_PID" 2>/dev/null; then
         echo "Error: zrok access stopped unexpectedly. Please check your share token ($SHARE_TOKEN)."
+        echo "Tip: If you see 'accessUnauthorized (401)', refresh your local zrok identity:"
+        echo "     zrok disable && zrok enable <your_token>"
         exit 1
     fi
     if (exec 3<>"/dev/tcp/127.0.0.1/${LOCAL_PORT}") 2>/dev/null; then
